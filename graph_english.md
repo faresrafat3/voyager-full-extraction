@@ -1,0 +1,119 @@
+# Voyager — Logic Graph (English)
+
+Paper: https://arxiv.org/abs/2305.16291  
+Code: https://github.com/MineDojo/Voyager  
+Commit: `55e45a880755d0c8c66ca7fb5fe7962ac8974f89`
+
+```mermaid
+flowchart TD
+  %% Voyager — official code logic graph (English)
+  %% Paper arXiv:2305.16291 | Code MineDojo/Voyager @ 55e45a8
+
+  START([Start Voyager]) --> MODE{Run mode?}
+  MODE -->|learn| LEARN[learn: lifelong loop]
+  MODE -->|inference| INF[inference: task or sub_goals]
+  MODE -->|decompose only| DEC[decompose_task]
+
+  subgraph LEARNL["Lifelong learning — Voyager.learn"]
+    direction TB
+    LEARN --> RES{resume?}
+    RES -->|yes| SOFT[env.reset soft keep inventory]
+    RES -->|no| HARD[env.reset hard clear inventory]
+    SOFT --> PEEK[last_events = env.step empty]
+    HARD --> PEEK
+    PEEK --> OUTER{recorder.iteration > max_iterations?}
+    OUTER -->|yes| LEND[Return completed/failed/skills]
+    OUTER -->|no| PROP[CurriculumAgent.propose_next_task]
+  end
+
+  subgraph CURR["CurriculumAgent"]
+    direction TB
+    PROP --> C0{progress == 0?}
+    C0 -->|yes auto| T0[Hard-coded: Mine 1 wood log + wood context]
+    C0 -->|no| INV{inventoryUsed >= 33?}
+    INV -->|yes| CHEST[Deposit / place / craft chest task]
+    INV -->|no| WARM[Build human msg with warm-up gates]
+    WARM --> QA{progress >= warm_up context?}
+    QA -->|yes| Q1[QA step1 ask questions]
+    Q1 --> Q2[QA step2 answer + Chroma cache]
+    Q2 --> CLM[LLM curriculum Reasoning + Task]
+    QA -->|no| CLM
+    CLM --> PARSE_T[Parse Task: line]
+    PARSE_T --> CTX[get_task_context How to task?]
+    T0 --> ROLLOUT
+    CHEST --> ROLLOUT
+    CTX --> ROLLOUT
+  end
+
+  subgraph ROLL["Rollout — iterative prompting"]
+    direction TB
+    ROLLOUT[rollout task, context] --> RSET[reset: difficulty peaceful/easy]
+    RSET --> RET0[retrieve_skills query=context]
+    RET0 --> SYS[Action system: action_template + primitives + skills]
+    SYS --> HUM[Action human: state + task + context]
+    HUM --> STEP{step loop}
+    STEP --> LLM[ActionAgent.llm messages]
+    LLM --> PARSE{process_ai_message Babel OK?}
+    PARSE -->|no| RETRY_P[Record empty; keep messages]
+    RETRY_P --> STEPDONE
+    PARSE -->|yes| EXEC[env.step program_code + exec + programs]
+    EXEC --> CHESTMEM[update_chest_memory]
+    CHESTMEM --> CRIT[CriticAgent.check_task_success]
+    CRIT --> CMODE{critic mode}
+    CMODE -->|manual| CHUM[Human y/n + critique]
+    CMODE -->|auto| CJSON[LLM JSON success + critique]
+    CHUM --> SUCC{success?}
+    CJSON --> SUCC
+    SUCC -->|no and reset_placed| REVERT[givePlacedItemBack]
+    SUCC -->|no| REFS[retrieve skills with chatlog summary]
+    SUCC -->|yes| REFS
+    REVERT --> REFS
+    REFS --> REBUILD[Rebuild system+human with code/errors/critique]
+    REBUILD --> STEPDONE{done = success OR iter >= max_retries?}
+    STEPDONE -->|no| STEP
+    STEPDONE -->|yes| INFO[info task success program_*]
+  end
+
+  INFO --> ADD{success?}
+  ADD -->|yes| SKILL[SkillManager.add_new_skill]
+  ADD -->|no| UPD
+  SKILL --> DESC[skill.txt describe main function]
+  DESC --> STORE[vectordb + skills.json + code/desc files]
+  STORE --> UPD[curriculum.update_exploration_progress]
+  UPD --> OUTER
+
+  subgraph INFLO["Inference"]
+    direction TB
+    INF --> NEED{task or sub_goals?}
+    NEED -->|task only| DEC2[decompose_task → JSON list]
+    NEED -->|sub_goals given| SG[use sub_goals]
+    DEC --> DEC2
+    DEC2 --> SG
+    SG --> IRESET[env.reset]
+    IRESET --> ILOOP{progress < len sub_goals?}
+    ILOOP -->|yes| ITASK[next_task = sub_goals progress]
+    ITASK --> ICTX[get_task_context]
+    ICTX --> ROLLOUT
+    ILOOP -->|no| IEND[Done inference]
+  end
+
+  subgraph SKILLR["Skill retrieve path"]
+    direction LR
+    QR[query context / chat summary] --> VDB[Chroma top_k]
+    VDB --> CODES[skill codes → Action programs]
+  end
+
+  RET0 -.-> SKILLR
+  REFS -.-> SKILLR
+
+  subgraph AGENTS["Four agents"]
+    direction LR
+    A1[CurriculumAgent]
+    A2[ActionAgent]
+    A3[CriticAgent]
+    A4[SkillManager]
+  end
+
+  LEND --> END([Artifacts: tasks · skills · ckpt · events])
+  IEND --> END
+```

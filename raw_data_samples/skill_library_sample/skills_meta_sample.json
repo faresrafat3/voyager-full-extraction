@@ -1,0 +1,22 @@
+{
+  "mineWoodLog": {
+    "description": "async function mineWoodLog(bot) {\n    // The function is about mining a single wood log block. It searches for a wood log block by exploring the environment until it finds one of the seven types of wo",
+    "code_len": 577
+  },
+  "mineThreeMoreOakLogs": {
+    "description": "async function mineThreeMoreOakLogs(bot) {\n    // The function is about mining 3 oak logs. It first checks the initial inventory for oak logs. Then, it explores the environment until it finds 3 oak lo",
+    "code_len": 939
+  },
+  "craftCraftingTable": {
+    "description": "async function craftCraftingTable(bot) {\n    // The function crafts a crafting table using oak planks. It first checks if there are enough oak planks in the inventory, and if not, crafts oak planks fr",
+    "code_len": 760
+  },
+  "craftWoodenPickaxe": {
+    "description": "async function craftWoodenPickaxe(bot) {\n    // The function crafts a wooden pickaxe using oak planks, sticks, and a crafting table. It checks if there are enough oak planks and sticks in the inventor",
+    "code_len": 1451
+  },
+  "craftWoodenSword": {
+    "description": "async function craftWoodenSword(bot) {\n    // The function crafts a wooden sword using oak planks, sticks, and a crafting table. It checks if there are enough oak planks and sticks in the inventory, a",
+    "code_len": 1209
+  }
+}

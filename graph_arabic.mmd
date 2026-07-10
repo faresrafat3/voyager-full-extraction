@@ -1,0 +1,111 @@
+flowchart TD
+  %% فوييجر Voyager — مخطط منطق الكود الرسمي (عربي)
+  %% الورقة arXiv:2305.16291 | الكود MineDojo/Voyager @ 55e45a8
+
+  START([بداية Voyager]) --> MODE{وضع التشغيل؟}
+  MODE -->|learn| LEARN[learn: حلقة التعلم مدى الحياة]
+  MODE -->|inference| INF[inference: مهمة أو أهداف فرعية]
+  MODE -->|decompose فقط| DEC[decompose_task]
+
+  subgraph LEARNL["التعلم المفتوح — Voyager.learn"]
+    direction TB
+    LEARN --> RES{resume؟}
+    RES -->|نعم| SOFT[env.reset soft الإبقاء على المخزون]
+    RES -->|لا| HARD[env.reset hard تفريغ المخزون]
+    SOFT --> PEEK[last_events = env.step فارغ]
+    HARD --> PEEK
+    PEEK --> OUTER{recorder.iteration > max_iterations؟}
+    OUTER -->|نعم| LEND[إرجاع completed/failed/skills]
+    OUTER -->|لا| PROP[CurriculumAgent.propose_next_task]
+  end
+
+  subgraph CURR["وكيل المنهج CurriculumAgent"]
+    direction TB
+    PROP --> C0{progress == 0؟}
+    C0 -->|نعم auto| T0[مهمة ثابتة: Mine 1 wood log + سياق الخشب]
+    C0 -->|لا| INV{inventoryUsed >= 33؟}
+    INV -->|نعم| CHEST[إيداع / وضع / صناعة صندوق]
+    INV -->|لا| WARM[بناء رسالة بشرية ببوابات الإحماء]
+    WARM --> QA{progress >= warm_up context؟}
+    QA -->|نعم| Q1[QA خطوة1 طرح أسئلة]
+    Q1 --> Q2[QA خطوة2 إجابة + كاش Chroma]
+    Q2 --> CLM[نموذج المنهج Reasoning + Task]
+    QA -->|لا| CLM
+    CLM --> PARSE_T[تحليل سطر Task:]
+    PARSE_T --> CTX[get_task_context كيف أنجز المهمة؟]
+    T0 --> ROLLOUT
+    CHEST --> ROLLOUT
+    CTX --> ROLLOUT
+  end
+
+  subgraph ROLL["Rollout — التحفيز التكراري"]
+    direction TB
+    ROLLOUT[rollout task, context] --> RSET[reset: صعوبة peaceful/easy]
+    RSET --> RET0[retrieve_skills باستعلام context]
+    RET0 --> SYS[نظام Action: action_template + primitives + skills]
+    SYS --> HUM[إنسان Action: الحالة + المهمة + السياق]
+    HUM --> STEP{حلقة step}
+    STEP --> LLM[ActionAgent.llm messages]
+    LLM --> PARSE{process_ai_message Babel ناجح؟}
+    PARSE -->|لا| RETRY_P[تسجيل فارغ؛ الإبقاء على الرسائل]
+    RETRY_P --> STEPDONE
+    PARSE -->|نعم| EXEC[env.step program_code + exec + programs]
+    EXEC --> CHESTMEM[update_chest_memory]
+    CHESTMEM --> CRIT[CriticAgent.check_task_success]
+    CRIT --> CMODE{وضع الناقد}
+    CMODE -->|manual| CHUM[إنسان y/n + نقد]
+    CMODE -->|auto| CJSON[JSON من النموذج success + critique]
+    CHUM --> SUCC{نجاح؟}
+    CJSON --> SUCC
+    SUCC -->|لا و reset_placed| REVERT[givePlacedItemBack]
+    SUCC -->|لا| REFS[استرجاع مهارات مع ملخص الدردشة]
+    SUCC -->|نعم| REFS
+    REVERT --> REFS
+    REFS --> REBUILD[إعادة بناء system+human مع الكود/الأخطاء/النقد]
+    REBUILD --> STEPDONE{done = نجاح أو iter >= max_retries؟}
+    STEPDONE -->|لا| STEP
+    STEPDONE -->|نعم| INFO[info مهمة نجاح program_*]
+  end
+
+  INFO --> ADD{نجاح؟}
+  ADD -->|نعم| SKILL[SkillManager.add_new_skill]
+  ADD -->|لا| UPD
+  SKILL --> DESC[skill.txt وصف الدالة الرئيسية]
+  DESC --> STORE[vectordb + skills.json + ملفات code/desc]
+  STORE --> UPD[curriculum.update_exploration_progress]
+  UPD --> OUTER
+
+  subgraph INFLO["الاستدلال Inference"]
+    direction TB
+    INF --> NEED{مهمة أو sub_goals؟}
+    NEED -->|مهمة فقط| DEC2[decompose_task → قائمة JSON]
+    NEED -->|sub_goals جاهزة| SG[استخدام sub_goals]
+    DEC --> DEC2
+    DEC2 --> SG
+    SG --> IRESET[env.reset]
+    IRESET --> ILOOP{progress < طول sub_goals؟}
+    ILOOP -->|نعم| ITASK[next_task = sub_goals progress]
+    ITASK --> ICTX[get_task_context]
+    ICTX --> ROLLOUT
+    ILOOP -->|لا| IEND[انتهاء inference]
+  end
+
+  subgraph SKILLR["مسار استرجاع المهارات"]
+    direction LR
+    QR[استعلام context / ملخص دردشة] --> VDB[Chroma top_k]
+    VDB --> CODES[أكواد المهارات → programs]
+  end
+
+  RET0 -.-> SKILLR
+  REFS -.-> SKILLR
+
+  subgraph AGENTS["أربعة وكلاء"]
+    direction LR
+    A1[CurriculumAgent]
+    A2[ActionAgent]
+    A3[CriticAgent]
+    A4[SkillManager]
+  end
+
+  LEND --> END([مخرجات: مهام · مهارات · نقاط حفظ · أحداث])
+  IEND --> END

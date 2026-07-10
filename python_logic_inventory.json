@@ -1,0 +1,113 @@
+{
+  "system": "Voyager",
+  "paper": "https://arxiv.org/abs/2305.16291",
+  "code": "https://github.com/MineDojo/Voyager",
+  "commit": "55e45a880755d0c8c66ca7fb5fe7962ac8974f89",
+  "stars_approx": 7037,
+  "license": "MIT",
+  "paper_components": {
+    "automatic_curriculum": "CurriculumAgent",
+    "skill_library": "SkillManager",
+    "iterative_prompting": "ActionAgent + CriticAgent + env"
+  },
+  "files": [
+    {
+      "path": "voyager/voyager.py",
+      "role": "Orchestrator: learn, inference, rollout, step, reset",
+      "functions": ["__init__", "reset", "close", "step", "rollout", "learn", "decompose_task", "inference"],
+      "loops": ["learn while iterations", "rollout while not done", "inference while progress < sub_goals"],
+      "decisions": ["resume soft/hard", "max_iterations", "success add skill", "exception hard reset", "task_max_retries", "reset_placed_if_failed", "difficulty by completed>15"]
+    },
+    {
+      "path": "voyager/agents/action.py",
+      "role": "Iterative prompting code generation",
+      "functions": [
+        "update_chest_memory", "render_chest_observation",
+        "render_system_message", "render_human_message",
+        "process_ai_message", "summarize_chatlog"
+      ],
+      "loops": ["Babel parse retry 3", "event fold", "chest memory iteration"],
+      "decisions": ["execution_error flag", "chat_log flag", "deposit task hides chest obs", "async function(bot) required", "gpt-3.5 primitive set"]
+    },
+    {
+      "path": "voyager/agents/critic.py",
+      "role": "Self-verification success + critique",
+      "functions": [
+        "render_system_message", "render_human_message",
+        "human_check_task_success", "ai_check_task_success", "check_task_success"
+      ],
+      "loops": ["ai_check_task_success retries"],
+      "decisions": ["mode auto|manual", "onError → None human", "JSON success bool"]
+    },
+    {
+      "path": "voyager/agents/curriculum.py",
+      "role": "Automatic curriculum + QA + decomposition",
+      "functions": [
+        "render_system_message", "render_observation", "render_human_message",
+        "propose_next_task", "propose_next_ai_task", "parse_ai_message",
+        "propose_next_manual_task", "update_exploration_progress", "clean_up_tasks",
+        "decompose_task", "run_qa", "get_task_context",
+        "run_qa_step1_ask_questions", "run_qa_step2_answer_questions"
+      ],
+      "loops": ["QA questions", "propose_next_ai_task retries", "warm-up observation keys"],
+      "decisions": [
+        "mode auto|manual",
+        "progress==0 first task",
+        "inventoryUsed>=33 chest tasks",
+        "warm_up thresholds",
+        "80% include unlocked obs",
+        "QA cache similarity < 0.05",
+        "skip Unknown answers in context",
+        "skip deposit in progress update"
+      ],
+      "default_warmup": {
+        "context": 15, "biome": 10, "time": 15, "other_blocks": 10,
+        "nearby_entities": 5, "health": 15, "hunger": 15,
+        "optional_inventory_items": 7
+      }
+    },
+    {
+      "path": "voyager/agents/skill.py",
+      "role": "Skill library store/retrieve/describe",
+      "functions": ["programs", "add_new_skill", "generate_skill_description", "retrieve_skills"],
+      "loops": [],
+      "decisions": ["skip deposit skills", "name collision V{i}", "k=min(count,top_k)", "empty library → []"]
+    },
+    {
+      "path": "voyager/prompts/*.txt",
+      "role": "All static prompt templates",
+      "prompts": [
+        "action_template", "action_response_format", "critic",
+        "curriculum", "curriculum_qa_step1_ask_questions",
+        "curriculum_qa_step2_answer_questions", "curriculum_task_decomposition",
+        "skill"
+      ]
+    },
+    {
+      "path": "voyager/env/bridge.py",
+      "role": "Python–Mineflayer bridge step/reset",
+      "notes": "events list ends with observe; soft/hard reset modes"
+    },
+    {
+      "path": "voyager/control_primitives_context/*",
+      "role": "JS snippets shown inside Action system programs block"
+    },
+    {
+      "path": "skill_library/trial{1,2,3}",
+      "role": "Learned skill libraries (code + description + vectordb artifacts)",
+      "approx_skills_per_trial": "57-58 code files; skills.json ~51 entries in trial1 sample"
+    }
+  ],
+  "algorithm_axes": {
+    "curriculum": ["auto", "manual"],
+    "critic": ["auto", "manual"],
+    "run_mode": ["learn_lifelong", "inference_subgoals"],
+    "reset": ["soft", "hard"]
+  },
+  "relation_to_arsenal": {
+    "curriculum": "outer goal proposal (related L0/L6 goaling)",
+    "action_critic_loop": "inner generate-execute-critique-retry (L4-like + env)",
+    "skill_library": "persistent procedural memory (beyond L5 verbal reflections)",
+    "contrast_lats": "open-ended skill compounding vs single-episode MCTS"
+  }
+}
