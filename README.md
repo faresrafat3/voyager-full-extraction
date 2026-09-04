@@ -3,7 +3,7 @@
 Paper: [Voyager: An Open-Ended Embodied Agent with Large Language Models](https://arxiv.org/abs/2305.16291)  
 Code: https://github.com/MineDojo/Voyager  
 Audited commit: `55e45a880755d0c8c66ca7fb5fe7962ac8974f89`  
-GitHub stars: ~7,037 (verified 2026-07-10) · License: MIT
+GitHub stars: ~7,176 (last verified 2026-09-04) [previously: ~7,037 on 2026-07-10] · License: MIT
 
 ## Why this package
 
