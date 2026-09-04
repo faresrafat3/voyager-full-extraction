@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  syntax:
+    name: Lint and parse check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install ruff
+        run: pip install --upgrade pip && pip install ruff
+      - name: Ruff (syntax + undefined names)
+        run: ruff check raw_prompt_files/ --select=E9,F63,F7,F82
+      - name: Python compile check
+        run: |
+          python3 -m compileall -q raw_prompt_files/
